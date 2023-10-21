@@ -26,14 +26,21 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Needed so the onPause and onResume methods can keep track on
+        // the connection changes.
+        connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        internetChecker = new InternetChecker();
 
-            connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-            internetChecker = new InternetChecker();
 
         // Create Mediaplayers to play soundeffects for the checkButtonutton
         // These sounds are locally accessed in the /res/raw folder
         MediaPlayer happySound = MediaPlayer.create(this, R.raw.sound_happy);
         MediaPlayer sadSound = MediaPlayer.create(this, R.raw.sound_sad);
+
+
+        //Matches the textView variables with the right textView Widgets
+        textView = (TextView) findViewById(R.id.textView);
+        textView2 = (TextView) findViewById(R.id.textView2);
 
 
         // Create a button which displays a short message and sound
@@ -58,7 +65,6 @@ public class MainActivity extends AppCompatActivity {
         Switches between SystemTime and NTPTime depending on
         if internet connection is available.
         */
-
             Thread t = new Thread(){
                 @Override
                 public void run() {
@@ -66,34 +72,29 @@ public class MainActivity extends AppCompatActivity {
                             while(!isInterrupted()) {
 
                                 Thread.sleep(1000);
-                                runOnUiThread(new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        if(InternetBoolean.connectedTo==false) {
-                                            //If no internet is accessible this will run
-                                            //Sets SystemTime in textview and "no internet" message in textView2
-                                            textView = (TextView) findViewById(R.id.textView);
-                                            textView2 = (TextView) findViewById(R.id.textView2);
-                                            long systemTimeNow = System.currentTimeMillis();
-                                            SimpleDateFormat timeStringFormat = new SimpleDateFormat("kk:mm:ss");
-                                            String timeString = timeStringFormat.format(systemTimeNow);
-                                            textView.setText(timeString);
-                                            textView2.setText("System Time:");
-                                        }
-                                        else{
-                                        // If internet is accessible this will run
-                                        // Sets the time to NtpTime, as well as changes the internet message.
-                                       SNTPClient.getDate(TimeZone.getTimeZone("Asia/Colombo"), (rawDate, date, ex) -> {
-                                            Calendar.getInstance().setTimeZone(TimeZone.getTimeZone("Asia/Colombo"));
-                                            textView = (TextView) findViewById(R.id.textView);
-                                            textView2 = (TextView) findViewById(R.id.textView2);
-                                            SimpleDateFormat timeFormat = new SimpleDateFormat("kk:mm:ss");
-                                            String ntimeString = timeFormat.format(date);
-                                            textView.setText(ntimeString);
-                                            textView2.setText("NTP Time:");
-                                        });}
-
+                                runOnUiThread(() -> {
+                                    if(InternetBoolean.connectedTo==false) {
+                                        //If no internet is accessible this will run
+                                        //Sets SystemTime in textview and "SystemTime" message in textView2
+                                        long systemTimeNow = System.currentTimeMillis();
+                                        SimpleDateFormat timeStringFormat = new SimpleDateFormat("kk:mm:ss");
+                                        String timeString = timeStringFormat.format(systemTimeNow);
+                                        textView.setText(timeString);
+                                        textView2.setText("System Time:");
                                     }
+                                    else{
+                                    /*
+                                    If internet is accessible this will run.
+                                    Sets the time to NtpTime, as well as changes the internet message.
+                                    The SNTPClient uses "time.google.com" as default host.
+                                    */
+                                   SNTPClient.getDate(TimeZone.getTimeZone("Asia/Colombo"), (rawDate, date, ex) -> {
+                                        Calendar.getInstance().setTimeZone(TimeZone.getTimeZone("Asia/Colombo"));
+                                        SimpleDateFormat timeFormat = new SimpleDateFormat("kk:mm:ss");
+                                        String ntimeString = timeFormat.format(date);
+                                        textView.setText(ntimeString);
+                                        textView2.setText("NTP Time:");
+                                    });}
 
                                 });
                             }
@@ -131,6 +132,3 @@ public class MainActivity extends AppCompatActivity {
     }
 
 }
-// Kör en runnable för konstant uppdatering.
-//Lägg till en check för internet access.
-//Lägg till fält för att säga

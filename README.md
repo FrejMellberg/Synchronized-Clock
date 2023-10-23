@@ -1,15 +1,50 @@
 # Synchronized-Clock
-An Android application with a time display switching between NTP-time and System-time
-
-# Synchronized-Clock
 An Android application with a time display switching from NTPtime to Systemtime
 when the internet connection is lost.
 
 
-![systemtime]("/systemtime.png")![ntptime]("/ntptime.png")
+<img src="/systemtime.png" width="400" hight="1200"> <img src="/ntptime.png" width="400" hight="1200">
 <p><br></p>
 
 
+### Using the SNTPClient
+
+
+```java
+  SNTPClient.getDate(TimeZone.getTimeZone("America/New_York"), new SNTPClient.Listener() {
+                                @Override
+                                public void onTimeResponse(String rawDate, Date date, Exception ex) {
+                                    /*
+                                    If "date" is returned as null, internet is inaccessible,
+                                    or the NTPserver can't be reached.
+                                    Sets System time in textview and "SystemTime" message in textView2
+                                    */
+                                    if (date == null) {
+                                        long systemTimeNow = System.currentTimeMillis();
+                                        SimpleDateFormat systemTimeFormat = new SimpleDateFormat("kk:mm:ss");
+                                        String timeString = systemTimeFormat.format(systemTimeNow);
+                                        textView.setText(timeString);
+                                        textView2.setText("System Time :");
+
+                                    } else {
+                                        /*
+                                        If internet is accessible this will run.
+                                        Sets the time to NtpTime, as well as changes the time-type message.
+                                        */
+                                        SimpleDateFormat NTPtimeFormat = new SimpleDateFormat("kk:mm:ss");
+                                        String ntimeString = NTPtimeFormat.format(date);
+                                        textView.setText(ntimeString);
+                                        textView2.setText("NTP Time :");
+                                    }
+                                }
+                            });
+```
+The SNTPClient is used in a thread and updated every second. It will connect to the chosen NTPserver (time.google.com as default) and return a date. If the request for a date fails and is returned as null, system time will be displayed instead. This will of course happen everytime internet is unavailable.
+
+##### Thanks to user aslamanver for the SNTP-client!
+##### https://github.com/aslamanver/sntp-client-android
+
+<p><br></p>
 
 #### The InternetChecker class check the status of the connection and changes the connectedTo-boolean
 
@@ -33,53 +68,6 @@ public class InternetChecker extends ConnectivityManager.NetworkCallback {
     }
 ```
 
-
-#### Thread for updating the different times
-
-```java
- Thread t = new Thread(){
-                @Override
-                public void run() {
-                    try {
-                            while(!isInterrupted()) {
-
-                                Thread.sleep(1000);
-                                runOnUiThread(() -> {
-                                    if(InternetBoolean.connectedTo==false) {
-                                        //If no internet is accessible this will run
-                                        //Sets SystemTime in textview and "SystemTime" message in textView2
-                                        long systemTimeNow = System.currentTimeMillis();
-                                        SimpleDateFormat timeStringFormat = new SimpleDateFormat("kk:mm:ss");
-                                        String timeString = timeStringFormat.format(systemTimeNow);
-                                        textView.setText(timeString);
-                                        textView2.setText("System Time:");
-                                    }
-                                    else{
-                                    /*
-                                    If internet is accessible this will run.
-                                    Sets the time to NtpTime, as well as changes the internet message.
-                                    The SNTPClient uses "time.google.com" as default host.
-                                    */
-                                   SNTPClient.getDate(TimeZone.getTimeZone("Asia/Colombo"), (rawDate, date, ex) -> {
-                                        Calendar.getInstance().setTimeZone(TimeZone.getTimeZone("Asia/Colombo"));
-                                        SimpleDateFormat timeFormat = new SimpleDateFormat("kk:mm:ss");
-                                        String ntimeString = timeFormat.format(date);
-                                        textView.setText(ntimeString);
-                                        textView2.setText("NTP Time:");
-                                    });}
-
-                                });
-                            }
-                    } catch(InterruptedException e){
-                        System.out.println("InterruptedException in Thread");
-                }
-            }
-
-            };
-```
-
-
-
-
-#### Thanks to user aslamanver for the SNTP-client!
-#### https://github.com/aslamanver/sntp-client-android
+This is used only for the check internet button.
+Each time the button is pressed a networkcallback is sent to retrieve
+the status.

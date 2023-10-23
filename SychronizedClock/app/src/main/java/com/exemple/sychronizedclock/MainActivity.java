@@ -11,6 +11,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.TimeZone;
 
 public class MainActivity extends AppCompatActivity {
@@ -31,6 +32,9 @@ public class MainActivity extends AppCompatActivity {
         connectivityManager = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         internetChecker = new InternetChecker();
 
+        // Runs a check on whether there are internet access or not at startup
+        connectivityManager.registerDefaultNetworkCallback(internetChecker);
+
 
         // Create Mediaplayers to play soundeffects for the checkButtonutton
         // These sounds are locally accessed in the /res/raw folder
@@ -43,17 +47,18 @@ public class MainActivity extends AppCompatActivity {
         textView2 = (TextView) findViewById(R.id.textView2);
 
 
-        // Create a button which displays a short message and sound
+        // Creates a button which displays a short message and sound
         // communicating whether or not internet is accessible.
         checkButton = (Button) findViewById(R.id.button);
         checkButton.setOnClickListener(new View.OnClickListener() {
             public void onClick(View view) {
-                if(InternetBoolean.connectedTo==false){
-                    Toast.makeText(getApplicationContext(),"No Internet Access",Toast.LENGTH_LONG).show();
+                connectivityManager.registerDefaultNetworkCallback(internetChecker);
+                if (InternetBoolean.connectedTo == false) {
+
+                    Toast.makeText(getApplicationContext(), "No Internet Access", Toast.LENGTH_LONG).show();
                     sadSound.start();
-                }
-                else{
-                    Toast.makeText(getApplicationContext(),"Internet Access",Toast.LENGTH_LONG).show();
+                } else {
+                    Toast.makeText(getApplicationContext(), "Internet Access", Toast.LENGTH_LONG).show();
                     happySound.start();
                 }
             }
@@ -62,73 +67,66 @@ public class MainActivity extends AppCompatActivity {
         /*
         A Thread that keeps time updated.
         Will check every second for changes.
-        Switches between SystemTime and NTPTime depending on
-        if internet connection is available.
+        Switches between System time and NTP-time depending on
+        the availability of internet connection.
         */
-            Thread t = new Thread(){
-                @Override
-                public void run() {
-                    try {
-                            while(!isInterrupted()) {
+        Thread timeThread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    while (!isInterrupted()) {
 
-                                Thread.sleep(1000);
-                                runOnUiThread(() -> {
-                                    if(InternetBoolean.connectedTo==false) {
-                                        //If no internet is accessible this will run
-                                        //Sets SystemTime in textview and "SystemTime" message in textView2
-                                        long systemTimeNow = System.currentTimeMillis();
-                                        SimpleDateFormat timeStringFormat = new SimpleDateFormat("kk:mm:ss");
-                                        String timeString = timeStringFormat.format(systemTimeNow);
-                                        textView.setText(timeString);
-                                        textView2.setText("System Time:");
-                                    }
-                                    else{
+                        Thread.sleep(1000);
+
+                        // Makes sure the UI objects (textview) access the UI-thread correctly
+                        runOnUiThread(() -> {
+                           /*
+                           The SNTPClient uses "time.google.com" as default host.
+                           The timezone used may shift depending on system settings.
+                           If the timezone is set to "use location" the one stated below will be used.
+                           */
+                            SNTPClient.getDate(TimeZone.getTimeZone("America/New_York"), new SNTPClient.Listener() {
+                                @Override
+                                public void onTimeResponse(String rawDate, Date date, Exception ex) {
                                     /*
-                                    If internet is accessible this will run.
-                                    Sets the time to NtpTime, as well as changes the internet message.
-                                    The SNTPClient uses "time.google.com" as default host.
+                                    If "date" is returned as null, internet is inaccessible,
+                                    or the NTPserver can't be reached.
+                                    Sets System time in textview and "SystemTime" message in textView2
                                     */
-                                   SNTPClient.getDate(TimeZone.getTimeZone("Asia/Colombo"), (rawDate, date, ex) -> {
-                                        Calendar.getInstance().setTimeZone(TimeZone.getTimeZone("Asia/Colombo"));
-                                        SimpleDateFormat timeFormat = new SimpleDateFormat("kk:mm:ss");
-                                        String ntimeString = timeFormat.format(date);
-                                        textView.setText(ntimeString);
-                                        textView2.setText("NTP Time:");
-                                    });}
+                                    if (date == null) {
+                                        long systemTimeNow = System.currentTimeMillis();
+                                        SimpleDateFormat systemTimeFormat = new SimpleDateFormat("kk:mm:ss");
+                                        String timeString = systemTimeFormat.format(systemTimeNow);
+                                        textView.setText(timeString);
+                                        textView2.setText("System Time :");
 
-                                });
-                            }
-                    } catch(InterruptedException e){
-                        System.out.println("InterruptedException in Thread");
+                                    } else {
+                                        /*
+                                        If internet is accessible this will run.
+                                        Sets the time to NtpTime, as well as changes the time-type message.
+                                        */
+                                        SimpleDateFormat NTPtimeFormat = new SimpleDateFormat("kk:mm:ss");
+                                        String ntimeString = NTPtimeFormat.format(date);
+                                        textView.setText(ntimeString);
+                                        textView2.setText("NTP Time :");
+                                    }
+                                }
+                            });
+
+
+                        });
+                    }
+                } catch (InterruptedException e) {
+                    System.out.println("InterruptedException in Thread");
                 }
             }
 
-            };
+        };
 
 
-            // Starts up the Thread "t"
-            t.start();
-
+        // Starts up the Thread "timeThread"
+        timeThread.start();
 
 
     }
-
-// InternetChecker methods for keeping track on if the internet connection is on/off
-// while the app is running. A change will switch the Global static boolean "connectedTo" to true/false
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Register the NetworkCallback
-        connectivityManager.registerDefaultNetworkCallback(internetChecker);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        // Unregister the NetworkCallback when the activity is paused
-        connectivityManager.unregisterNetworkCallback(internetChecker);
-
-    }
-
 }
